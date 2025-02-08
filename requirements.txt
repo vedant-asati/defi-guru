@@ -13,3 +13,4 @@ arcade-ai[fastapi]
 langchain-arcade
 arcade_x
 import_ipynb
+langgraph-cli[inmem]
