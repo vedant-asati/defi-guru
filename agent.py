@@ -7,9 +7,39 @@ from load_env import *
 from cdp_langchain.agent_toolkits import CdpToolkit
 from cdp_langchain.utils import CdpAgentkitWrapper
 
-cdp = CdpAgentkitWrapper()
+# Import custom actions
+from approve_token import get_approve_token_tool
+from increase_liquidity import get_increase_liquidity_tool
+from mint_new_position import get_mint_new_position_tool
+
+
+# Configure a file to persist the agent's CDP MPC Wallet Data.
+wallet_data_file = "wallet_data.txt"
+# Configure CDP Agentkit Langchain Extension.
+wallet_data = None
+values = {}
+if wallet_data is not None:
+    # If there is a persisted agentic wallet, load it and pass to the CDP Agentkit Wrapper.
+    # values = {"cdp_wallet_data": wallet_data}
+    values = {"mnemonic_phrase": mnemonic_phrase}
+
+cdp = CdpAgentkitWrapper(**values)
+
+# persist the agent's CDP MPC Wallet Data.
+wallet_data = agentkit.export_wallet()
+with open(wallet_data_file, "w") as f:
+    f.write(wallet_data)
+
+# Initialize CDP Agentkit Toolkit and get tools.    
 toolkit = CdpToolkit.from_cdp_agentkit_wrapper(cdp)
 tools_blockchain = toolkit.get_tools()
+
+# Adding custom actions to the tools list
+approve_token_tool = get_approve_token_tool(agentkit)
+mint_new_position_tool = get_mint_new_position_tool(agentkit)
+increase_liquidity_tool = get_increase_liquidity_tool(agentkit)
+
+tools_blockchain = tools_blockchain + [approve_token_tool, mint_new_position_tool, increase_liquidity_tool]
 
 # Import LLM and create an instance using the Google GenAI model "gemini-2.0-flash"
 from langchain_google_genai import ChatGoogleGenerativeAI
