@@ -1,0 +1,16 @@
+python-dotenv
+
+langchain_core
+langchain_community
+
+langgraph
+langchain-groq
+cdp-langchain
+langchain_google_genai
+eth_utils
+tweepy
+arcade-ai[fastapi]
+langchain-arcade
+arcade_x
+import_ipynb
+langgraph-cli[inmem]
