@@ -1,9 +1,32 @@
-# Cell 1: Import required modules and load environment variables
-import import_ipynb
-import load_env
-from load_env import *
+# ======= Cell 1: Import Modules & Load Environment Variables =======
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-# Import agent toolkit and initialize the CDP agent kit wrapper
+# Load required API keys from environment variables
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY")
+LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT")
+LANGSMITH_ENDPOINT = os.getenv("LANGSMITH_ENDPOINT")
+LANGSMITH_TRACING = os.getenv("LANGSMITH_TRACING")
+CDP_API_KEY_NAME = os.getenv("CDP_API_KEY_NAME")
+CDP_API_KEY_PRIVATE_KEY = os.getenv("CDP_API_KEY_PRIVATE_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+ARCADE_API_KEY = os.getenv("ARCADE_API_KEY")
+
+# Make sure these keys are available in os.environ for later use
+os.environ["GROQ_API_KEY"] = GROQ_API_KEY
+os.environ["LANGSMITH_API_KEY"] = LANGSMITH_API_KEY
+os.environ["LANGSMITH_PROJECT"] = LANGSMITH_PROJECT
+os.environ["LANGSMITH_ENDPOINT"] = LANGSMITH_ENDPOINT
+os.environ["LANGSMITH_TRACING"] = LANGSMITH_TRACING
+os.environ["CDP_API_KEY_PRIVATE_KEY"] = CDP_API_KEY_PRIVATE_KEY
+os.environ["CDP_API_KEY_NAME"] = CDP_API_KEY_NAME
+os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
+os.environ["ARCADE_API_KEY"] = ARCADE_API_KEY
+
+# ======= Cell 2: Initialize Agents =======
+# Import CDP agent toolkit and create a blockchain tools wrapper
 from cdp_langchain.agent_toolkits import CdpToolkit
 from cdp_langchain.utils import CdpAgentkitWrapper
 
@@ -11,36 +34,31 @@ cdp = CdpAgentkitWrapper()
 toolkit = CdpToolkit.from_cdp_agentkit_wrapper(cdp)
 tools_blockchain = toolkit.get_tools()
 
-# Import LLM and create an instance using the Google GenAI model "gemini-2.0-flash"
+# Import the LLM from Google GenAI (using the "gemini-2.0-flash" model)
 from langchain_google_genai import ChatGoogleGenerativeAI
 llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
 
-# Import LangGraph’s helper to create react agents
+# Import helper to create react agents from LangGraph
 from langgraph.prebuilt import create_react_agent
 
-# Cell 2: Create our three agents
-
-# Create the blockchain agent using the blockchain toolkit.
+# Create the blockchain agent (handles blockchain-related tasks)
 blockchain_agent = create_react_agent(llm, tools=tools_blockchain)
 
-# For Twitter, use the ArcadeToolManager to load the X toolkit (assumes ARCADE_API_KEY is defined in the environment).
+# For Twitter, use ArcadeToolManager to load the X toolkit (requires ARCADE_API_KEY)
 from langchain_arcade import ArcadeToolManager
 tool_manager = ArcadeToolManager(api_key=ARCADE_API_KEY)
 tools_twitter = tool_manager.get_tools(toolkits=["X"])
 twitter_agent = create_react_agent(llm, tools=tools_twitter)
 
-# Create the assistant agent.
-# This agent’s sole work is to review the full conversation state and generate a confirmation or general query response.
-# It no longer requires external internet access.
+# Create the assistant agent (for confirmation and clarifying responses)
 assistant_agent_prompt = (
     "You are an assistant agent whose job is to analyze the entire conversation state and, if a confirmation is needed, "
     "generate a concise confirmation message starting with 'Yes, please'. Otherwise, generate a helpful response to clarify "
     "or resolve any ambiguity."
 )
-assistant_agent = create_react_agent(llm, tools=[])  # No extra tools are needed.
+assistant_agent = create_react_agent(llm, tools=[])
 
-# Cell 3: Define the supervisor's system prompt with explicit message naming and an example flow.
-# The team now includes the assistant_agent.
+# ======= Cell 3: Define Supervisor Prompt & Agent Capabilities =======
 members = ["blockchain_agent", "twitter_agent", "assistant_agent"]
 options = members + ["FINISH"]
 
@@ -61,7 +79,7 @@ AGENT_CAPABILITIES = f"""
 
 ## Assistant Agent Capabilities
 - Review the entire conversation state.
-- Generate confirmation messages or clarifying responses when needed
+- Generate confirmation messages or clarifying responses when needed.
 - Produce responses starting with "Yes, please" when a confirmation is required.
 
 ## Routing Rules
@@ -115,17 +133,14 @@ Step 4: Routing to the Next Agent
     - The supervisor then routes to the Twitter Agent.
     - Twitter Agent: "I am sorry, I cannot get the price of ETH in USD. However, I can post a tweet to X(Twitter). Do you want to post a tweet?"
     - Again, if no genuine user confirmation is present, you route to the Assistant Agent.
-    - Assistant Agent: "Yes, please post the tweet. The price of ETh is $2609.37"
+    - Assistant Agent: "Yes, please post the tweet. The price of ETH is $2609.37."
     - Then, you route to the Twitter Agent to execute the tweet.
 
 Step 5: Completion
     - Once the tweet is posted or an appropriate response is obtained, the supervisor updates the state and responds with FINISH.
-
-Based on these rules and the example above, analyze the conversation history and respond with the next worker to act or with FINISH if the overall task is complete.
 """
 
-# Cell 4: Define a pydantic model for the Router, the State type, and the supervisor_node function
-
+# ======= Cell 4: Define the Router Model and Supervisor Node =======
 from typing import Literal
 from pydantic import BaseModel
 from langgraph.graph import MessagesState, END
@@ -149,8 +164,7 @@ def supervisor_node(state: State) -> Command[Literal["blockchain_agent", "twitte
         goto = END
     return Command(goto=goto, update={"next": goto})
 
-# Cell 5: Define nodes for the blockchain, twitter, and assistant agents.
-
+# ======= Cell 5: Define the Agent Nodes =======
 def blockchain_node(state: State) -> Command[Literal["supervisor"]]:
     result = blockchain_agent.invoke(state)
     content = result["messages"][-1].content
@@ -174,21 +188,17 @@ def twitter_node(state: State) -> Command[Literal["supervisor"]]:
     )
 
 def assistant_node(state: State) -> Command[Literal["supervisor"]]:
-    # Build a conversation context string from all messages.
+    # Build a conversation context string from all messages
     conversation_context = " ".join([msg.content for msg in state["messages"]])
-    print(f"COnversation history {conversation_context}")
+    print(f"Conversation history: {conversation_context}")
     prompt = (
         f"Given the full conversation context: '{conversation_context}', "
         "if a confirmation is needed for the current action (e.g., fetching ETH or posting a tweet), "
         "generate a concise confirmation message starting with 'Yes, please'. Otherwise, provide a clarifying response."
     )
-    # IMPORTANT: Pass the prompt under the 'contents' key as required.
-    # result = llm.invoke({"contents": [prompt]})
     result = llm.invoke(prompt)
-
     content = result.content
-
-    print(f"Content generated {content}")
+    print(f"Content generated by assistant: {content}")
     return Command(
         update={
             "messages": [HumanMessage(content=content, name="assistant_agent")],
@@ -197,8 +207,7 @@ def assistant_node(state: State) -> Command[Literal["supervisor"]]:
         goto="supervisor",
     )
 
-# Cell 6: Build the conversation graph using LangGraph's StateGraph
-
+# ======= Cell 6: Build the Conversation Graph =======
 from langgraph.graph import StateGraph, START, END
 
 builder = StateGraph(State)
@@ -207,24 +216,39 @@ builder.add_node("blockchain_agent", blockchain_node)
 builder.add_node("twitter_agent", twitter_node)
 builder.add_node("assistant_agent", assistant_node)
 builder.add_edge(START, "supervisor")
-
 graph = builder.compile()
 
-# # Optionally, display the graph using mermaid visualization
-# from IPython.display import Image, display
-# display(Image(graph.get_graph(xray=True).draw_mermaid_png()))
+# # ======= Cell 7: Interactive Chatbot Loop =======
+# from langchain_core.messages import HumanMessage
 
-# Cell 7: Invoke the graph with a sample conversation
+# # Configuration for the conversation (persistent thread & user id)
+# config = {"configurable": {"thread_id": "1", "user_id": "user@example.com"}}
+# # Initialize conversation state with a greeting (or leave empty if desired)
+# initial_messages = [HumanMessage(content="Hi", name="User")]
+# conversation_state = {"messages": initial_messages}
 
-from langchain_core.messages import HumanMessage
+# print("Chatbot is ready! Type your question (or 'quit' to exit).")
 
-config = {"configurable": {"thread_id": "1", "user_id": "user@example.com"}}
-initial_messages = [HumanMessage(content="Hi", name="User")]
+# while True:
+#     try:
+#         user_input = input("User: ")
+#     except (EOFError, KeyboardInterrupt):
+#         print("Goodbye!")
+#         break
 
-result_state = graph.invoke({"messages": initial_messages}, config=config, stream_mode="values")
+#     if user_input.lower() in ["quit", "exit", "q"]:
+#         print("Goodbye!")
+#         break
 
-# Print the last few messages for clarity
-for m in result_state["messages"][-4:]:
-    m.pretty_print()
-
-print(result_state)
+#     # Append the new user message to the conversation state
+#     conversation_state["messages"].append(HumanMessage(content=user_input, name="User"))
+    
+#     # Invoke the graph with the current conversation state
+#     result_state = graph.invoke(conversation_state, config=config, stream_mode="values")
+    
+#     # Print the last message from the agents
+#     last_message = result_state["messages"][-1]
+#     last_message.pretty_print()
+    
+#     # Update the conversation state for context retention
+#     conversation_state["messages"] = result_state["messages"]
