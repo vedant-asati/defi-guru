@@ -41,19 +41,13 @@ class MintNewPositionInput(BaseModel):
 def mint_new_position(wallet: Wallet, tokenA_amount: str, tokenB_amount: str) -> str:
     """Mint a new liquidity position."""
     try:
-        print("--------Invoking mint_new_position--------")
+        print("-"*20 + "Invoking mint_new_position" + "-"*20)
 
         symbolA, amountA = parse_token_amount(tokenA_amount)
         symbolB, amountB = parse_token_amount(tokenB_amount)
-        print("symbolA", symbolA)
-        print("amountA", amountA)
-        print("symbolB", symbolB)
-        print("amountB", amountB)
 
         tokenA_address = TOKENS[symbolA]['address']
         tokenB_address = TOKENS[symbolB]['address']
-        print("tokenA_address", tokenA_address)
-        print("tokenB_address", tokenB_address)
 
         # The address of your UniswapV3Liquidity contract
         liquidity_contract_address = CONTRACTS["UNISWAP_V3_LIQUIDITY_CONTRACT"]
@@ -72,8 +66,8 @@ def mint_new_position(wallet: Wallet, tokenA_amount: str, tokenB_amount: str) ->
             asset_id='wei',
         )
         result = invocation.wait()
-        print("result", result)
-        print("🎉 New liquidity position created! Transaction hash: {result.transaction.transaction_hash}")
+        # print("result", result, "\n")
+        print(f"🎉 New liquidity position created! Transaction hash: {result.transaction.transaction_hash}")
 
         return f"🎉 New liquidity position created! Transaction hash: {result.transaction.transaction_hash}"
     except Exception as e:

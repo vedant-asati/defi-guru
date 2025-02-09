@@ -57,7 +57,7 @@ def approve_token(wallet: Wallet, token_amount: str) -> str:
         )
         result = invocation.wait()
         
-        print("result:", result)
+        # print("result:", result, "\n")
         print(f"✅ Approval successful! Transaction hash: {result.transaction.transaction_hash}")
 
         return f"✅ Approval successful! Transaction hash: {result.transaction.transaction_hash}"

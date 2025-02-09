@@ -67,8 +67,8 @@ def increase_liquidity(wallet: Wallet, token_id: int, tokenA_amount: str, tokenB
             asset_id='wei',
         )
         result = invocation.wait()
-        print("result:", result)
-        print("🛠 Liquidity increased! Transaction hash: {result.transaction.transaction_hash}")
+        # print("result:", result, "\n")
+        print(f"🛠 Liquidity increased! Transaction hash: {result.transaction.transaction_hash}")
         
         return f"🛠 Liquidity increased! Transaction hash: {result.transaction.transaction_hash}"
     except Exception as e:

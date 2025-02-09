@@ -15,12 +15,22 @@ from approve_token import get_approve_token_tool
 from increase_liquidity import get_increase_liquidity_tool
 from mint_new_position import get_mint_new_position_tool
 
+import os
+
+load_dotenv()
 
 # Configure a file to persist the agent's CDP MPC Wallet Data.
 wallet_data_file = "wallet_data.txt"
 # Configure CDP Agentkit Langchain Extension.
 wallet_data = None
+
+if os.path.exists(wallet_data_file):
+    with open(wallet_data_file) as f:
+        wallet_data = f.read()
+
 values = {}
+
+mnemonic_phrase = os.getenv("MNEMONIC_PHRASE")
 if wallet_data is not None:
     # If there is a persisted agentic wallet, load it and pass to the CDP Agentkit Wrapper.
     # values = {"cdp_wallet_data": wallet_data}
@@ -181,7 +191,8 @@ def supervisor_node(state: State) -> Command[Literal["blockchain_agent", "twitte
     goto = response.next
     print("\n")
     print(f"Routing to {goto}...")
-    print("\n" + "."*50)
+    # print("."*50)
+    # print("\n" + "."*50)
     if goto == "FINISH":
         goto = END
     return Command(goto=goto, update={"next": goto})
@@ -265,10 +276,10 @@ print("🤖 Welcome to DeFi Guru!".center(50))
 print("="*50 + "\n")
 
 # Get user input
-# user_message = input("Your message: ")
+user_message = input("Your message: ")
 # initial_message = [HumanMessage(content=user_message, name="User")]
 
-initial_message = [HumanMessage(content="help me earning money. i have 16 stk and 1 ved token. after completing the operations you can post a cool message on twitter about this and add the txn link with format: https://sepolia.basescan.org/tx/${txnhash}.", name="User")]
+initial_message = [HumanMessage(content="help me earning money. i have 16 stk and 1 ved token. after completing the operations you can post a cool message on twitter about this and add the txn link with format: https://sepolia.basescan.org/tx/${txnhash}. Dont forget to provide the tweet url.", name="User")]
 # initial_message = [HumanMessage(content="help me earning money. i have 10 stk and .1 ved token", name="User")]
 
 # print_message_nicely(initial_message)
@@ -284,9 +295,9 @@ print("="*50 + "\n")
 # for m in result_state["messages"][-4:]:
 #     m.pretty_print()
 
-print("\n....................")
-print("\n....................")
-print("result_state: ", result_state)
+# print("\n....................")
+# print("\n....................")
+# print("result_state: ", result_state)
 
 # Print the conversation nicely
 # print_conversation_nicely(result_state["messages"])
