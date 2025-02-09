@@ -33,7 +33,9 @@ values = {}
 mnemonic_phrase = os.getenv("MNEMONIC_PHRASE")
 if wallet_data is not None:
     # If there is a persisted agentic wallet, load it and pass to the CDP Agentkit Wrapper.
-    # values = {"cdp_wallet_data": wallet_data}
+    values = {"cdp_wallet_data": wallet_data}
+else:
+    # If there is no persisted wallet, pass the mnemonic phrase to the CDP Agentkit Wrapper.
     values = {"mnemonic_phrase": mnemonic_phrase}
 
 cdp = CdpAgentkitWrapper(**values)
