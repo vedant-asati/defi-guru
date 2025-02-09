@@ -7,6 +7,9 @@ from load_env import *
 from cdp_langchain.agent_toolkits import CdpToolkit
 from cdp_langchain.utils import CdpAgentkitWrapper
 
+# Import pretty print
+from helpers import print_message_nicely
+
 # Import custom actions
 from approve_token import get_approve_token_tool
 from increase_liquidity import get_increase_liquidity_tool
@@ -26,7 +29,7 @@ if wallet_data is not None:
 cdp = CdpAgentkitWrapper(**values)
 
 # persist the agent's CDP MPC Wallet Data.
-wallet_data = agentkit.export_wallet()
+wallet_data = cdp.export_wallet()
 with open(wallet_data_file, "w") as f:
     f.write(wallet_data)
 
@@ -35,9 +38,9 @@ toolkit = CdpToolkit.from_cdp_agentkit_wrapper(cdp)
 tools_blockchain = toolkit.get_tools()
 
 # Adding custom actions to the tools list
-approve_token_tool = get_approve_token_tool(agentkit)
-mint_new_position_tool = get_mint_new_position_tool(agentkit)
-increase_liquidity_tool = get_increase_liquidity_tool(agentkit)
+approve_token_tool = get_approve_token_tool(cdp)
+mint_new_position_tool = get_mint_new_position_tool(cdp)
+increase_liquidity_tool = get_increase_liquidity_tool(cdp)
 
 tools_blockchain = tools_blockchain + [approve_token_tool, mint_new_position_tool, increase_liquidity_tool]
 
@@ -81,6 +84,8 @@ AGENT_CAPABILITIES = f"""
 - DeFi interactions (Morpho vault deposits/withdrawals)
 - Price oracle queries (Pyth Network)
 - Handle testnet faucet requests
+- Uniswap add liquidity and mint new liquidity positions
+- ERC20 token approvals
 
 ## Twitter Agent Capabilities
 - Post tweets (requires authentication)
@@ -171,10 +176,12 @@ class State(MessagesState):
 def supervisor_node(state: State) -> Command[Literal["blockchain_agent", "twitter_agent", "__end__"]]:
     # Combine the system prompt with the conversation history
     messages = [{"role": "system", "content": system_prompt}] + state["messages"]
-    print(f"State in supervisor: {state}")
+    # print(f"State in supervisor: {state}")
     response = llm.with_structured_output(Router).invoke(messages)
     goto = response.next
-    print(f"Routing to {goto}")
+    print("\n")
+    print(f"Routing to {goto}...")
+    print("\n" + "."*50)
     if goto == "FINISH":
         goto = END
     return Command(goto=goto, update={"next": goto})
@@ -184,9 +191,11 @@ def supervisor_node(state: State) -> Command[Literal["blockchain_agent", "twitte
 def blockchain_node(state: State) -> Command[Literal["supervisor"]]:
     result = blockchain_agent.invoke(state)
     content = result["messages"][-1].content
+    message = HumanMessage(content=content, name="blockchain_agent")
+    print_message_nicely(message)
     return Command(
         update={
-            "messages": [HumanMessage(content=content, name="blockchain_agent")],
+            "messages": [message],
             "next": "supervisor"
         },
         goto="supervisor",
@@ -195,9 +204,11 @@ def blockchain_node(state: State) -> Command[Literal["supervisor"]]:
 def twitter_node(state: State) -> Command[Literal["supervisor"]]:
     result = twitter_agent.invoke(state)
     content = result["messages"][-1].content
+    message = HumanMessage(content=content, name="twitter_agent")
+    print_message_nicely(message)
     return Command(
         update={
-            "messages": [HumanMessage(content=content, name="twitter_agent")],
+            "messages": [message],
             "next": "supervisor"
         },
         goto="supervisor",
@@ -206,22 +217,21 @@ def twitter_node(state: State) -> Command[Literal["supervisor"]]:
 def assistant_node(state: State) -> Command[Literal["supervisor"]]:
     # Build a conversation context string from all messages.
     conversation_context = " ".join([msg.content for msg in state["messages"]])
-    print(f"COnversation history {conversation_context}")
     prompt = (
         f"Given the full conversation context: '{conversation_context}', "
-        "if a confirmation is needed for the current action (e.g., fetching ETH or posting a tweet), "
-        "generate a concise confirmation message starting with 'Yes, please'. Otherwise, provide a clarifying response."
+        "if a confirmation is needed for the current action (e.g., fetching ETH, approving for erc20 token or posting a tweet), "
+        "firstly infer from the context and user intent and then, if not clear,"
+        "think about yourselves generate a concise confirmation message starting with 'Yes, please', Otherwise, provide your brief opinion to accomplish the task/goal."
     )
     # IMPORTANT: Pass the prompt under the 'contents' key as required.
     # result = llm.invoke({"contents": [prompt]})
     result = llm.invoke(prompt)
-
     content = result.content
-
-    print(f"Content generated {content}")
+    message = HumanMessage(content=content, name="assistant_agent")
+    print_message_nicely(message)
     return Command(
         update={
-            "messages": [HumanMessage(content=content, name="assistant_agent")],
+            "messages": [message],
             "next": "supervisor"
         },
         goto="supervisor",
@@ -249,12 +259,34 @@ graph = builder.compile()
 from langchain_core.messages import HumanMessage
 
 config = {"configurable": {"thread_id": "1", "user_id": "user@example.com"}}
-initial_messages = [HumanMessage(content="Hi", name="User")]
 
-result_state = graph.invoke({"messages": initial_messages}, config=config, stream_mode="values")
+print("\n" + "="*50)
+print("🤖 Welcome to DeFi Guru!".center(50))
+print("="*50 + "\n")
+
+# Get user input
+# user_message = input("Your message: ")
+# initial_message = [HumanMessage(content=user_message, name="User")]
+
+initial_message = [HumanMessage(content="help me earning money. i have 16 stk and 1 ved token. after completing the operations you can post a cool message on twitter about this and add the txn link with format: https://sepolia.basescan.org/tx/${txnhash}.", name="User")]
+# initial_message = [HumanMessage(content="help me earning money. i have 10 stk and .1 ved token", name="User")]
+
+# print_message_nicely(initial_message)
+
+result_state = graph.invoke({"messages": initial_message}, config=config, stream_mode="values")
+
+# Optional: Print end of conversation
+print("\n" + "="*50)
+print("Conversation Complete".center(50))
+print("="*50 + "\n")
 
 # Print the last few messages for clarity
-for m in result_state["messages"][-4:]:
-    m.pretty_print()
+# for m in result_state["messages"][-4:]:
+#     m.pretty_print()
 
-print(result_state)
+print("\n....................")
+print("\n....................")
+print("result_state: ", result_state)
+
+# Print the conversation nicely
+# print_conversation_nicely(result_state["messages"])

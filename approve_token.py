@@ -9,7 +9,7 @@ from cdp_langchain.tools import CdpTool
 from helpers import parse_token_amount, TOKENS, CONTRACTS, ERC20_ABI
 
 APPROVE_TOKEN_DESCRIPTION = """
-Approve the Uniswap V3 Liquidity contract to spend a specified amount of your ERC20 tokens on your behalf. This is required before adding liquidity or performing actions involving token transfers by the contract.
+Approve the Uniswap V3 Liquidity contract to spend a specified amount of your ERC20 tokens on your behalf. This is required before adding liquidity or performing actions involving token transfers by the contract if approval is not already done by the user.
 
 **Usage Examples:**
 - "Approve 1,000,000 STK for the liquidity contract."
@@ -20,9 +20,11 @@ Approve the Uniswap V3 Liquidity contract to spend a specified amount of your ER
 
 **Important Notes:**
 - **Existing Approval**: Check if sufficient allowance exists to avoid unnecessary transactions.
+- If approval requesed for small amount of tokens (<100, eg. 1 STK) then approve for 100 times the amount to avoid multiple approvals in future.
 - **Token Support**: Only recognized tokens can be approved.
 - **Network Support**: Supported only on 'base-sepolia' network.
 - **No Addresses Needed**: Contract and token addresses are predefined.
+- ""No need to do again and again unnecessarily, if already approved.
 """
 
 class ApproveTokenInput(BaseModel):
@@ -35,6 +37,8 @@ class ApproveTokenInput(BaseModel):
 def approve_token(wallet: Wallet, token_amount: str) -> str:
     """Approve tokens for the liquidity contract."""
     try:
+        print("-"*20 + "Invoking approve_token"+ "-"*20)
+
         symbol, amount_wei = parse_token_amount(token_amount)
         token_address = TOKENS[symbol]['address']
 
@@ -52,6 +56,10 @@ def approve_token(wallet: Wallet, token_amount: str) -> str:
             asset_id='wei',  # Assuming 'wei' as the asset ID for ETH network
         )
         result = invocation.wait()
+        
+        print("result:", result)
+        print(f"✅ Approval successful! Transaction hash: {result.transaction.transaction_hash}")
+
         return f"✅ Approval successful! Transaction hash: {result.transaction.transaction_hash}"
     except Exception as e:
         return f"❌ Approval failed: {str(e)}"

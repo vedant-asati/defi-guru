@@ -315,3 +315,20 @@ def parse_token_amount(input_str):
 def get_deadline(offset_seconds=600):
     import time
     return int(time.time()) + offset_seconds
+
+# First, define your pretty print function
+def print_message_nicely(msg):
+    print("\n" + "-"*50)
+    if msg.name == "User":
+        print("👤  User:")
+        print(f"   {msg.content}\n")
+    elif msg.name == "blockchain_agent":
+        print("⛓️  Blockchain Agent:")
+        print(f"   {msg.content}\n")
+    elif msg.name == "twitter_agent":
+        print("🐦  Twitter Agent:")
+        print(f"   {msg.content}\n")
+    elif msg.name == "assistant_agent":
+        print("🤖  Assistant Agent:")
+        print(f"   {msg.content}\n")
+    print("-"*50)

@@ -16,13 +16,13 @@ Add liquidity to an existing Uniswap V3 position identified by a token ID, incre
 - "Add liquidity to position 42: 50 VED + 5,000 STK."
 
 **Parameters:**
-- **token_id**: ID of your existing Uniswap V3 position.
+- **token_id**: ID of your existing Uniswap V3 position.(e`g., 35).
 - **tokenA_amount**: Amount and symbol of the first token (e.g., "100 VED").
 - **tokenB_amount**: Amount and symbol of the second token (e.g., "10,000 STK").
 
 **Important Notes:**
-- **Token Approval Required**: Approve the liquidity contract to spend both tokens using `approve_token` if not already approved.
-- **Valid Token ID**: `token_id` must correspond to a position you own.
+- **Token Approval Required**: Approve the liquidity contract to spend both tokens using `approve_token` if not already approved. Assume approval is done by default and if txn fails with error might mean that approval is not done for the token pair. Use approve_token tool to approve the token pair.
+- **Valid Token ID**: `token_id` must correspond to a position you own. Valid tokenids are: 35-40. If not provided, it will take 35 by default.
 - **Network Support**: Supported only on 'base-sepolia' network.
 - **No Addresses Needed**: Contract and token addresses are predefined.
 """
@@ -44,6 +44,7 @@ class IncreaseLiquidityInput(BaseModel):
 def increase_liquidity(wallet: Wallet, token_id: int, tokenA_amount: str, tokenB_amount: str) -> str:
     """Increase liquidity of an existing position."""
     try:
+        print("-"*20 + "Invoking increase liquidity"+ "-"*20)
         symbolA, amountA = parse_token_amount(tokenA_amount)
         symbolB, amountB = parse_token_amount(tokenB_amount)
         tokenA_address = TOKENS[symbolA]['address']
@@ -66,6 +67,9 @@ def increase_liquidity(wallet: Wallet, token_id: int, tokenA_amount: str, tokenB
             asset_id='wei',
         )
         result = invocation.wait()
+        print("result:", result)
+        print("🛠 Liquidity increased! Transaction hash: {result.transaction.transaction_hash}")
+        
         return f"🛠 Liquidity increased! Transaction hash: {result.transaction.transaction_hash}"
     except Exception as e:
         return f"❌ Increasing liquidity failed: {str(e)}"
